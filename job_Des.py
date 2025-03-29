@@ -32,6 +32,8 @@ def get_job_description(job_url):
         try:
             # Attempt to locate the job description by XPath
             job_description = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="tab-detail"]/div[1]/ul[1]')))
+            job_description=wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="mt4"]/div[1]/ul[1]')))
+
         except:
             # If XPath fails, try a fallback method by locating the body tag
             job_description = wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -54,5 +56,5 @@ def get_job_description(job_url):
 def job_desc(job_url):
     return get_job_description(job_url)
 
-job_url = "https://unstop.com/internships/data-analytics-internship-bluebrain-solutions-1386525"
-job_desc(job_url)
+job_url = ["https://www.linkedin.com/jobs/view/4095520697/?alternateChannel=search&refId=D1FlZhK%2BWfrgPgk5fFegyw%3D%3D&trackingId=LA50O6XEnMVXM8wqDVWblQ%3D%3D","https://unstop.com/internships/data-analytics-internship-bluebrain-solutions-1386525"]
+for url in job_url:job_desc(url)
