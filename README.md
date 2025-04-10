@@ -19,7 +19,7 @@ This Flask-based project fetches **job-related learning resources** from **LeetC
 
 ---
 
-## 🔧 Installation
+## Installation
 
 1. **Clone the repo**
 
