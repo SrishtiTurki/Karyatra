@@ -33,7 +33,8 @@ def parse_message(message):
             "date_received": message.date,
             "subject": subject,
             "sender": sender,
-            "last_updated": datetime.now().isoformat()
+            "last_updated": datetime.now().isoformat(),
+            "gmail_link": f"https://mail.google.com/mail/u/0/#inbox/{email_id}"
         }
         
         return application
@@ -55,15 +56,29 @@ def extract_company(sender, subject, body):
             return domain.title()
         else:
             print(f"⚠️ Ignored platform domain: {domain}")
-
+    elif "fwd" in subject.lower():
+        print("🔄 Fwd detected in subject. Searching body for company name...")
+        body_patterns = [
+            r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+            r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+            r'join(?:ing)?\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+            r'opportunity\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+            r'career\s+with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+        ]
+        for pattern in body_patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
+                company = match.group(1).strip()
+                print(f"📨 Company extracted from email body (Fwd): {company}")
+                return company
     # Common patterns in subject
     company_patterns = [
-        r'from\s+([A-Z][A-Za-z0-9\s&]+)',
-        r'at\s+([A-Z][A-Za-z0-9\s&]+)',
-        r'with\s+([A-Z][A-Za-z0-9\s&]+)',
-        r'([A-Z][A-Za-z0-9\s&]+)\s+job',
-        r'([A-Z][A-Za-z0-9\s&]+)\s+application',
-        r'([A-Z][A-Za-z0-9\s&]+)\s+careers'
+        r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+        r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+        r'with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+job',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+application',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+careers'
     ]
 
     for pattern in company_patterns:
@@ -73,28 +88,18 @@ def extract_company(sender, subject, body):
             print(f"📝 Company extracted from subject: {company}")
             return company
 
-    for pattern in company_patterns:
-        match = re.search(pattern, body, re.IGNORECASE)
-        if match:
-            company = match.group(1).strip()
-            print(f"📨 Company extracted from email body: {company}")
-            return company
-
     print("❌ Could not determine company name, defaulting to 'Unknown Company'")
     return "Unknown Company"
 
-
-
-import re
 
 def extract_role(subject, body):
     """Extract job role from email subject and body using keyword search."""
     # List of potential job roles (you can extend this list as needed)
     job_roles = [
-        "Data Scientist", "Data Analyst", "Software Engineer", "Developer", 
+        "Data Scientist", "Data Analyst", "Full Stack Developer", "Software Engineer", "Website Developer", "Developer", 
         "Summer Analyst", "Designer", "Manager", "Consultant", "AI Researcher", 
-        "Intern", "Business Analyst", "Full Stack Developer", "Frontend Developer", 
-        "Backend Developer", "Product Manager"
+        "Intern", "Business Analyst", "Frontend Developer", 
+        "Backend Developer", 
     ]
     
     # Convert the subject and body to lowercase to ensure case-insensitive matching

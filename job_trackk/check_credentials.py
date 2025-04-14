@@ -38,7 +38,7 @@ def check_gmail_credentials():
     client_secret_valid = check_json_file(client_secret_path)
     
     # Check gmail_token.json
-    token_path = os.path.join(current_dir, 'gmail_token.json')
+    token_path = os.path.join(current_dir, 'tokens','gmail_token.json')
     token_valid = check_json_file(token_path)
     
     if client_secret_valid and token_valid:

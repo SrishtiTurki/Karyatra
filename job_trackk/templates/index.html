@@ -114,6 +114,7 @@
                                 <th>Company</th>
                                 <th>Status</th>
                                 <th>Date</th>
+                                <th>Go to mail</th>
                             </tr>
                         </thead>
                         <tbody id="applicationsTable">
@@ -240,6 +241,7 @@
                     <td>${app.company || 'Unknown'}</td>
                     <td>${app.status || 'Unknown'}</td>
                     <td>${dateStr}</td>
+                    <td><a href="${app.gmail_link}" target="_blank">View Email</a></td> <!-- Gmail link -->
                 `;
                 
                 tableBody.appendChild(row);

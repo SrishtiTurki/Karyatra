@@ -27,7 +27,7 @@ def get_application_data():
     
     # Get all applications
     cursor.execute('''
-    SELECT role, company, status, date_received, subject, sender, last_updated
+    SELECT role, company, status, date_received, subject, sender, last_updated, message_id
     FROM job_applications
     ORDER BY date_received DESC
     ''')
@@ -197,6 +197,7 @@ def create_templates():
                                 <th>Company</th>
                                 <th>Status</th>
                                 <th>Date</th>
+                                <th>Go to mail</th>
                             </tr>
                         </thead>
                         <tbody id="applicationsTable">
@@ -323,6 +324,7 @@ def create_templates():
                     <td>${app.company || 'Unknown'}</td>
                     <td>${app.status || 'Unknown'}</td>
                     <td>${dateStr}</td>
+                    <td><a href="${app.gmail_link}" target="_blank">View Email</a></td> <!-- Gmail link -->
                 `;
                 
                 tableBody.appendChild(row);

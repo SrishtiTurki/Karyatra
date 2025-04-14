@@ -25,7 +25,6 @@ class JobApplicationTracker:
             self.db_path = db_path
             self.csv_path = csv_path
             
-            
             # Create database if it doesn't exist
             self._initialize_database()
         except Exception as e:
@@ -49,9 +48,11 @@ class JobApplicationTracker:
             date_received TIMESTAMP,
             subject TEXT,
             sender TEXT,
-            last_updated TIMESTAMP
+            last_updated TIMESTAMP,
+            message_id TEXT  
         )
         ''')
+        
         conn.commit()
         conn.close()
     
@@ -63,25 +64,31 @@ class JobApplicationTracker:
             print(f"Found {len(messages)} matching messages.\n")
             self.applications = []
             for message in messages:
+                # Log the message_id for each email
+                print(f"Processing message with ID: {message.id}")
                 # Skip if we've already processed this email
-                #if self._is_email_processed(message.id):
-                 #   print(f"Skipping already processed message: {message.subject}")
-                  #  continue
-                
-                # Parse the message
-                application = parse_message(message)
-                
-                if application:
-                    self.applications.append(application)
-                    
-                    # Save to database
-                    self._save_to_database(application)
-                    print(f"✅ Saved application from {application['company']} for {application['role']}")
+                if self._is_email_processed(message.id):
+                    print(f"Skipping already processed message: {message.subject}")
+                    continue
             
+            # Parse the message
+                application = parse_message(message)
+            
+                if application:
+                    application['message_id'] = message.id  # Add message_id to the application dictionary
+                    application['message_link'] = f"https://mail.google.com/mail/u/0/#inbox/{message.id}"  # Add Gmail link
+                
+                    self.applications.append(application)
+                
+                # Save to database
+                    self._save_to_database(application, message.id)
+                    print(f"✅ Saved application from {application['company']} for {application['role']}")
+        
             return self.applications
         except Exception as e:
             print(f"Error fetching messages: {e}")
             return []
+
     
     def _is_email_processed(self, email_id):
         """Check if email has already been processed."""
@@ -92,15 +99,15 @@ class JobApplicationTracker:
         conn.close()
         return result is not None
     
-    def _save_to_database(self, application):
+    def _save_to_database(self, application, message_id):
         """Save application data to SQLite database."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
         INSERT OR REPLACE INTO job_applications 
-        (email_id, role, company, status, date_received, subject, sender, last_updated)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (email_id, role, company, status, date_received, subject, sender, last_updated, message_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             application['email_id'],
             application['role'],
@@ -109,7 +116,8 @@ class JobApplicationTracker:
             application['date_received'],
             application['subject'],
             application['sender'],
-            application['last_updated']
+            application['last_updated'],
+            message_id
         ))
         
         conn.commit()
@@ -121,12 +129,12 @@ class JobApplicationTracker:
             # Load from database if applications list is empty
             print("Loading applications from database for CSV export...")
             self._load_from_database()
-            
         if not self.applications:
             print("No applications to save.")
             return
-            
-        fieldnames = ['role', 'company', 'status', 'date_received', 'subject', 'sender', 'last_updated']
+    
+        # Include 'message_link' in the fieldnames
+        fieldnames = ['role', 'company', 'status', 'date_received', 'subject', 'sender', 'last_updated', 'message_link','message_id']
         
         try:
             # Make sure directory exists
@@ -137,13 +145,15 @@ class JobApplicationTracker:
                 writer.writeheader()
                 
                 for app in self.applications:
-                    # Only include the fields we want
+                    app['message_id'] = app.get('message_id', 'N/A') 
+                    # Only include the fields we want, including 'message_link'
                     filtered_app = {k: v for k, v in app.items() if k in fieldnames}
                     writer.writerow(filtered_app)
                     
             print(f"Saved {len(self.applications)} applications to {self.csv_path}")
         except Exception as e:
             print(f"Error saving to CSV: {e}")
+
     
     def _load_from_database(self):
         """Load applications from the database."""
@@ -152,7 +162,7 @@ class JobApplicationTracker:
         cursor = conn.cursor()
         
         cursor.execute('''
-        SELECT email_id, role, company, status, date_received, subject, sender, last_updated
+        SELECT email_id, role, company, status, date_received, subject, sender, last_updated, message_id
         FROM job_applications
         ''')
         
@@ -160,7 +170,9 @@ class JobApplicationTracker:
         self.applications = []
         
         for row in rows:
-            self.applications.append(dict(row))
+            app = dict(row)
+            app['message_link'] = f"https://mail.google.com/mail/u/0/#inbox/{row['message_id']}"  # Add Gmail link
+            self.applications.append(app)
             
         conn.close()
         print(f"Loaded {len(self.applications)} applications from database.")
@@ -196,7 +208,7 @@ class JobApplicationTracker:
         
         # Get latest applications (by date)
         sorted_apps = sorted(self.applications, key=lambda x: x.get('date_received', ''), reverse=True)
-        latest_apps = sorted_apps[:5]
+        latest_apps = sorted_apps[:10]
         
         return {
             "status_counts": status_counts,
