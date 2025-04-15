@@ -67,9 +67,9 @@ class JobApplicationTracker:
                 # Log the message_id for each email
                 print(f"Processing message with ID: {message.id}")
                 # Skip if we've already processed this email
-                if self._is_email_processed(message.id):
-                    print(f"Skipping already processed message: {message.subject}")
-                    continue
+                #if self._is_email_processed(message.id):
+                    #print(f"Skipping already processed message: {message.subject}")
+                    #continue
             
             # Parse the message
                 application = parse_message(message)

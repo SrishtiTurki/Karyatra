@@ -44,9 +44,27 @@ def parse_message(message):
 
 def extract_company(sender, subject, body):
     """Extract company name from email metadata and content, with platform filtering and debug logs."""
-
+    # Known companies to look for specifically
+    known_companies = [
+        "Agron Remedies Private Limited",
+        "Sea",
+        "Google",
+        "Goldman Sachs",
+        "SIP Check",
+        "Latracal Solutions Pvt Ltd",
+        "CBIT Open Source Community",
+        "Girl Hackathon",
+        "My Peoples Card"
+    ]
+    
+    # First check if any known company is mentioned directly in the body
+    for company in known_companies:
+        if company.lower() in body.lower():
+            print(f"🎯 Found exact company match: {company}")
+            return company
+    
     platforms = ['linkedin', 'unstop', 'naukri', 'instahyre', 'foundit', 'indeed']
-
+    
     # Try sender domain first
     sender_domain = re.search(r'@([^>]+)', sender)
     if sender_domain:
@@ -59,11 +77,13 @@ def extract_company(sender, subject, body):
     elif "fwd" in subject.lower():
         print("🔄 Fwd detected in subject. Searching body for company name...")
         body_patterns = [
-            r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-            r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-            r'join(?:ing)?\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-            r'opportunity\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-            r'career\s+with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
+            r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+            r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+            r'join(?:ing)?\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+            r'opportunity\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+            r'career\s+with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+            # Add pattern for "internship at [Company]"
+            r'internship\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
         ]
         for pattern in body_patterns:
             match = re.search(pattern, body, re.IGNORECASE)
@@ -71,23 +91,40 @@ def extract_company(sender, subject, body):
                 company = match.group(1).strip()
                 print(f"📨 Company extracted from email body (Fwd): {company}")
                 return company
+    
+    # Always check body for specific patterns regardless of subject
+    body_patterns = [
+        r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+        r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+        r'join(?:ing)?\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+        r'opportunity\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+        r'career\s+with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+        r'internship\s+at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Pvt\s+Ltd\.|Ltd\.|Inc\.)?)',
+    ]
+    
+    for pattern in body_patterns:
+        match = re.search(pattern, body, re.IGNORECASE)
+        if match:
+            company = match.group(1).strip()
+            print(f"📨 Company extracted from email body: {company}")
+            return company
+
     # Common patterns in subject
     company_patterns = [
-        r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-        r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-        r'with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)',
-        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+job',
-        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+application',
-        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Inc\.)?)\s+careers'
+        r'from\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)',
+        r'at\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)',
+        r'with\s+([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)\s+job',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)\s+application',
+        r'([A-Za-z0-9\s&]+(?:Private\s+Limited|Ltd\.|Pvt\s+Ltd\.|Inc\.)?)\s+careers'
     ]
-
     for pattern in company_patterns:
         match = re.search(pattern, subject, re.IGNORECASE)
         if match:
             company = match.group(1).strip()
             print(f"📝 Company extracted from subject: {company}")
             return company
-
+            
     print("❌ Could not determine company name, defaulting to 'Unknown Company'")
     return "Unknown Company"
 
