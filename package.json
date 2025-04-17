@@ -1,0 +1,52 @@
+{
+  "name": "job-tracker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start_all": "concurrently \"python app.py\" \"python app_two.py\" \"python app_three.py\" \"python main_script.py\" \"python app_four.py\" \"python main.py\" \"python dashboard.py\" \"vite --open\"",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@firebasegen/default-connector": "file:dataconnect-generated/js/default-connector",
+    "@tailwindcss/forms": "^0.5.10",
+    "axios": "^1.8.4",
+    "compromise": "^14.14.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "firebase": "^11.6.0",
+    "gapi-script": "^1.2.0",
+    "googleapis": "^144.0.0",
+    "lucide-react": "^0.475.0",
+    "natural": "^8.0.1",
+    "react": "^19.0.0",
+    "react-datepicker": "^8.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.1.5",
+    "react-speech-recognition": "^4.0.0",
+    "react-toastify": "^11.0.3",
+    "recharts": "^2.15.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^9.1.2",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.18",
+    "globals": "^15.14.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^6.2.4"
+  }
+}
