@@ -9,6 +9,7 @@ import docx  # For DOCX parsing
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+nltk.download('punkt_tab')
 
 # Download NLTK resources (run once)
 try:

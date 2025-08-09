@@ -2,6 +2,11 @@
 import sqlite3
 from flask import Flask, jsonify, request # type: ignore
 from flask_cors import CORS   # type: ignore
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 app = Flask(__name__)
 CORS(app)

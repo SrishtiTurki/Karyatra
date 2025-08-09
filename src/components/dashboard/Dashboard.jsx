@@ -19,8 +19,21 @@ import { ToastContainer, toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import Chatbot from "../Chatbot";
 import JobStatsChart from "./JobStatsChart";
+import axios from 'axios';
 
 
+// Job roles data
+const jobRoles = {
+  'data analyst': {
+    skills: ['Python', 'SQL', 'Excel', 'Tableau', 'Power BI', 'Statistics', 'Data Visualization']
+  },
+  'software developer': {
+    skills: ['JavaScript', 'Python', 'React', 'Node.js', 'Git', 'SQL', 'HTML', 'CSS']
+  },
+  'product manager': {
+    skills: ['Product Strategy', 'Market Research', 'Agile', 'SQL', 'Analytics', 'Communication']
+  }
+};
 
 // Extension Download Component
 const InstallExtension = () => {
@@ -61,21 +74,39 @@ const DeleteIcon = () => (
   </svg>
 );
 
-// Resource Card Component - Updated
-const ResourceCard = ({ title, description, url, icon, skillBased = false }) => (
-  <a 
-    href={url} 
-    target="_blank" 
-    rel="noopener noreferrer"
-    className={`bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border ${skillBased ? 'border-blue-300' : 'border-gray-200'} flex flex-col h-full`}
-  >
-    <div className="flex items-start mb-2">
-      <span className="text-2xl mr-3">{icon}</span>
-      <h4 className={`font-medium ${skillBased ? 'text-blue-700' : 'text-gray-700'}`}>{title}</h4>
-    </div>
-    <p className="text-sm text-gray-600 mt-auto">{description}</p>
-  </a>
-);
+// Resource Card Component
+// ResourceCard Component
+const ResourceCard = ({ title, description, url, icon, skillBased = false }) => {
+  console.log(`Rendering ResourceCard: ${title}, URL: ${url}`); // Debug log
+  const isValidUrl = url && url !== '#' && url.startsWith('http');
+  return (
+    <a 
+      href={isValidUrl ? url : '#'} 
+      target="_blank" 
+      rel="noopener noreferrer"
+      className={`bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow border ${
+        skillBased ? 'border-blue-300' : 'border-gray-200'
+      } flex flex-col h-full ${isValidUrl ? 'cursor-pointer hover:bg-blue-50' : 'cursor-not-allowed opacity-50'}`}
+      onClick={(e) => {
+        if (!isValidUrl) {
+          e.preventDefault();
+          toast.error(`Invalid or missing URL for ${title}`);
+        }
+      }}
+    >
+      <div className="flex items-start mb-2">
+        <span className="text-2xl mr-3">{icon}</span>
+        <h4 className={`font-medium ${skillBased ? 'text-blue-700' : 'text-gray-700'}`}>
+          {title || 'Untitled Resource'}
+        </h4>
+      </div>
+      <p className="text-sm text-gray-600 mt-auto">{description || 'No description available'}</p>
+      {isValidUrl && (
+        <span className="text-xs text-blue-500 mt-2 underline hover:text-blue-700">Open resource</span>
+      )}
+    </a>
+  );
+};
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
@@ -94,119 +125,9 @@ const Dashboard = () => {
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState('data analyst');
   const [jobsFromGmail, setJobsFromGmail] = useState([]);
-
+  const [apiResources, setApiResources] = useState({});
+  const [isLoadingResources, setIsLoadingResources] = useState(false);
   
-
-
-
-  
-  // Comprehensive job roles with detailed skills and resources
-  const jobRoles = {
-    "data analyst": {
-      "skills": [
-        "python", "excel", "sql", "data visualization", "statistics",
-        "pandas", "power bi", "tableau", "data cleaning", "business analysis"
-      ],
-      "resources": {
-        "LinkedIn Learning": "https://www.linkedin.com/learning/paths/become-a-data-analyst",
-        "Forage Virtual Internship": "https://www.theforage.com/virtual-internships/prototype/ytc/JP-Morgan-Data-Analytics-Virtual-Experience",
-        "DataCamp Courses": "https://www.datacamp.com/career-tracks/data-analyst",
-        "Kaggle Learn": "https://www.kaggle.com/learn",
-        "Google Data Analytics Certificate": "https://www.coursera.org/professional-certificates/google-data-analytics"
-      }
-    },
-    "web developer": {
-      "skills": [
-        "html", "css", "javascript", "react", "node.js",
-        "express", "mongodb", "git", "responsive design", "typescript",
-        "rest api", "graphql", "webpack", "jest"
-      ],
-      "resources": {
-        "LinkedIn Learning": "https://www.linkedin.com/learning/paths/become-a-web-developer",
-        "Forage Virtual Internship": "https://www.theforage.com/virtual-internships/prototype/yzg/Accenture-Developer-Virtual-Experience",
-        "freeCodeCamp": "https://www.freecodecamp.org/learn",
-        "Frontend Mentor": "https://www.frontendmentor.io/",
-        "MDN Web Docs": "https://developer.mozilla.org/",
-        "JavaScript.info": "https://javascript.info/"
-      }
-    },
-    "software engineer": {
-      "skills": [
-        "java", "python", "c++", "data structures", "algorithms",
-        "system design", "docker", "kubernetes", "aws", "rest api",
-        "microservices", "testing", "debugging", "oop"
-      ],
-      "resources": {
-        "LeetCode": "https://leetcode.com/",
-        "CodeSignal": "https://codesignal.com/",
-        "Grokking the System Design Interview": "https://www.educative.io/courses/grokking-the-system-design-interview",
-        "The Missing Semester": "https://missing.csail.mit.edu/",
-        "Tech Interview Handbook": "https://www.techinterviewhandbook.org/",
-        "NeetCode": "https://neetcode.io/"
-      }
-    },
-    "ux/ui designer": {
-      "skills": [
-        "figma", "adobe xd", "user research", "wireframing", "prototyping",
-        "interaction design", "color theory", "typography", "user testing",
-        "accessibility", "design systems", "user flows"
-      ],
-      "resources": {
-        "Google UX Design Certificate": "https://www.coursera.org/professional-certificates/google-ux-design",
-        "Figma Learn": "https://www.figma.com/resources/learn-design/",
-        "UX Collective": "https://uxdesign.cc/",
-        "Awwwards": "https://www.awwwards.com/",
-        "Laws of UX": "https://lawsofux.com/",
-        "UI Design Daily": "https://www.uidesigndaily.com/"
-      }
-    },
-    "product manager": {
-      "skills": [
-        "product strategy", "roadmapping", "user stories", "agile methodology",
-        "market research", "competitive analysis", "stakeholder management", "jira",
-        "prioritization", "metrics analysis", "customer discovery"
-      ],
-      "resources": {
-        "Product School": "https://www.productschool.com/",
-        "Lenny's Newsletter": "https://www.lennysnewsletter.com/",
-        "Product Management Exercises": "https://www.productmanagementexercises.com/",
-        "Marty Cagan's Blog": "https://svpg.com/articles/",
-        "The Product Book": "https://www.productbook.com/",
-        "Mind the Product": "https://www.mindtheproduct.com/"
-      }
-    },
-    "data scientist": {
-      "skills": [
-        "python", "r", "machine learning", "statistics", "data visualization",
-        "sql", "pandas", "numpy", "tensorflow", "pytorch",
-        "natural language processing", "deep learning", "data mining"
-      ],
-      "resources": {
-        "Kaggle": "https://www.kaggle.com/",
-        "Fast.ai": "https://course.fast.ai/",
-        "Towards Data Science": "https://towardsdatascience.com/",
-        "DeepLearning.AI": "https://www.deeplearning.ai/",
-        "Data Science Central": "https://www.datasciencecentral.com/",
-        "Google Machine Learning Crash Course": "https://developers.google.com/machine-learning/crash-course"
-      }
-    },
-    "devops engineer": {
-      "skills": [
-        "docker", "kubernetes", "aws", "azure", "ci/cd",
-        "terraform", "ansible", "jenkins", "linux", "bash scripting",
-        "monitoring", "infrastructure as code"
-      ],
-      "resources": {
-        "DevOps Roadmap": "https://roadmap.sh/devops",
-        "Kubernetes Docs": "https://kubernetes.io/docs/home/",
-        "AWS Training": "https://aws.amazon.com/training/",
-        "DevOps Bootcamp": "https://www.udemy.com/course/devopsbootcamp/",
-        "Google Cloud Training": "https://cloud.google.com/training",
-        "The DevOps Handbook": "https://www.amazon.com/DevOps-Handbook-World-Class-Reliability-Organizations/dp/1942788002"
-      }
-    }
-  };
-
   const initialState = {
     company: '',
     role: '',
@@ -222,58 +143,94 @@ const Dashboard = () => {
 
   const db = getFirestore();
 
- // Modified getSkillResources to include more specific platform links
-const getSkillResources = (skill) => {
-  const skillResources = {
-    "python": [
-      { platform: "Python Official Docs", url: "https://docs.python.org/3/" },
-      { platform: "Real Python", url: "https://realpython.com/" },
-      { platform: "Python Crash Course", url: "https://ehmatthes.github.io/pcc/" },
-      { platform: "LeetCode Python", url: "https://leetcode.com/problemset/python/" },
-      { platform: "Forage Data Analytics", url: "https://www.theforage.com/virtual-internships/prototype/ytc/JP-Morgan-Data-Analytics-Virtual-Experience" }
-    ],
-    "javascript": [
-      { platform: "MDN JavaScript", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript" },
-      { platform: "JavaScript.info", url: "https://javascript.info/" },
-      { platform: "Eloquent JavaScript", url: "https://eloquentjavascript.net/" },
-      { platform: "LeetCode JavaScript", url: "https://leetcode.com/problemset/javascript/" },
-      { platform: "Forage Web Development", url: "https://www.theforage.com/virtual-internships/prototype/yzg/Accenture-Developer-Virtual-Experience" }
-    ],
-    "sql": [
-      { platform: "SQLZoo", url: "https://sqlzoo.net/" },
-      { platform: "Mode SQL Tutorial", url: "https://mode.com/sql-tutorial/" },
-      { platform: "SQLBolt", url: "https://sqlbolt.com/" },
-      { platform: "LeetCode SQL", url: "https://leetcode.com/problemset/database/" },
-      { platform: "Forage Data Analytics", url: "https://www.theforage.com/virtual-internships/prototype/ytc/JP-Morgan-Data-Analytics-Virtual-Experience" }
-    ],
-    "react": [
-      { platform: "React Official Docs", url: "https://reactjs.org/docs/getting-started.html" },
-      { platform: "React Tutorial", url: "https://react-tutorial.app/" },
-      { platform: "Epic React", url: "https://epicreact.dev/" },
-      { platform: "LeetCode Front End", url: "https://leetcode.com/problemset/frontend/" },
-      { platform: "Forage Web Development", url: "https://www.theforage.com/virtual-internships/prototype/yzg/Accenture-Developer-Virtual-Experience" }
-    ],
-    "data structures": [
-      { platform: "VisuAlgo", url: "https://visualgo.net/en" },
-      { platform: "GeeksforGeeks", url: "https://www.geeksforgeeks.org/data-structures/" },
-      { platform: "CodeChef", url: "https://www.codechef.com/certification/data-structures-and-algorithms/prepare" },
-      { platform: "LeetCode DS & Algorithms", url: "https://leetcode.com/explore/learn/" },
-      { platform: "Forage Software Development", url: "https://www.theforage.com/virtual-internships/prototype/hzmoNKtzvAzXsEqx8/Goldman-Sachs-Software-Engineering-Virtual-Experience" }
-    ],
-    "aws": [
-      { platform: "AWS Training", url: "https://aws.amazon.com/training/" },
-      { platform: "AWS Docs", url: "https://docs.aws.amazon.com/" },
-      { platform: "AWS Free Tier", url: "https://aws.amazon.com/free/" },
-      { platform: "Forage Cloud Engineering", url: "https://www.theforage.com/virtual-internships/prototype/9q7FuwKL8SfpCLQK7/Clifford-Chance-Cloud-Computing-Virtual-Experience-Programme" }
-    ]
-  };
+  // Get skill or role resources using SerpAPI
+// getSkillResources Function
+const getSkillResources = useCallback(async (skillOrRole, isRole = false) => {
+  const key = isRole ? `role:${skillOrRole}` : skillOrRole;
+  try {
+    if (apiResources[key]) {
+      console.log(`Using cached resources for ${key}`);
+      return apiResources[key];
+    }
 
-  return skillResources[skill.toLowerCase()] || [
-    { platform: "LeetCode", url: `https://leetcode.com/problemset/all/?search=${skill.replace(' ', '%20')}` },
-    { platform: "Forage Programs", url: `https://www.theforage.com/browse-programs?keywords=${skill.replace(' ', '%20')}` },
-    { platform: "LinkedIn Learning", url: `https://www.linkedin.com/learning/search?keywords=${skill.replace(' ', '%20')}` }
-  ];
-};
+    setIsLoadingResources(true);
+    console.log(`Fetching resources for ${skillOrRole} via Flask proxy...`);
+    
+    const response = await axios.get('http://127.0.0.1:5003/fetch_resources', {
+      params: { q: skillOrRole }
+    });
+
+    console.log(`Flask Response for ${skillOrRole}:`, response.data);
+
+    if (!Array.isArray(response.data)) {
+      console.warn(`Invalid response for ${skillOrRole}:`, response.data);
+      throw new Error(response.data.error || "No valid resources returned from Flask backend");
+    }
+
+    if (response.data.length === 0) {
+      console.warn(`No resources found for ${skillOrRole}`);
+      toast.warn(`No learning resources found for ${skillOrRole}. Using fallback resources.`);
+      return [
+        {
+          platform: "Coursera",
+          title: `Learn ${skillOrRole}`,
+          description: `Online courses for ${skillOrRole}`,
+          url: `https://www.coursera.org/courses?query=${encodeURIComponent(skillOrRole)}`
+        },
+        {
+          platform: "Udemy",
+          title: `${skillOrRole} Courses`,
+          description: `Video courses for ${skillOrRole}`,
+          url: `https://www.udemy.com/courses/search/?q=${encodeURIComponent(skillOrRole)}`
+        },
+        {
+          platform: "YouTube",
+          title: `${skillOrRole} Tutorials`,
+          description: `Free video tutorials for ${skillOrRole}`,
+          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(skillOrRole)}+tutorial`
+        }
+      ];
+    }
+
+    const formattedResources = response.data;
+    setApiResources(prev => ({
+      ...prev,
+      [key]: formattedResources
+    }));
+
+    return formattedResources;
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || error.message;
+    console.error(`Error fetching resources for ${skillOrRole}:`, {
+      message: errorMessage,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    toast.error(`Failed to fetch resources for ${skillOrRole}: ${errorMessage}`);
+    return [
+      {
+        platform: "Coursera",
+        title: `Learn ${skillOrRole}`,
+        description: `Online courses for ${skillOrRole}`,
+        url: `https://www.coursera.org/courses?query=${encodeURIComponent(skillOrRole)}`
+      },
+      {
+        platform: "Udemy",
+        title: `${skillOrRole} Courses`,
+        description: `Video courses for ${skillOrRole}`,
+        url: `https://www.udemy.com/courses/search/?q=${encodeURIComponent(skillOrRole)}`
+      },
+      {
+        platform: "YouTube",
+        title: `${skillOrRole} Tutorials`,
+        description: `Free video tutorials for ${skillOrRole}`,
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(skillOrRole)}+tutorial`
+      }
+    ];
+  } finally {
+    setIsLoadingResources(false);
+  }
+}, [apiResources]);
 
   // Analyze resume against selected job role
   const analyzeResume = useCallback(async () => {
@@ -330,124 +287,128 @@ const getSkillResources = (skill) => {
   }, []);
   
   // Perform skill gap analysis with improved matching
-const performSkillGapAnalysis = useCallback(async () => {
-  try {
-    setSkillGapsLoading(true);
-    
-    // First analyze the resume to get skills
-    const analysisResult = await analyzeResume();
-    if (!analysisResult) {
-      throw new Error("Resume analysis failed");
-    }
-    
-    if (!analysisResult.skills || analysisResult.skills.length === 0) {
-      throw new Error("No skills could be extracted from your resume.");
-    }
-
-    // Get the selected role data
-    const roleData = jobRoles[selectedRole.toLowerCase()];
-    if (!roleData) {
-      throw new Error(`Job role '${selectedRole}' is not in our database.`);
-    }
-
-    // Helper function to normalize skills for better matching
-    const normalizeSkill = (skill) => {
-      return skill.toLowerCase()
-        .trim()
-        .replace(/[-_./]/g, ' ') // Replace common separators with spaces
-        .replace(/\s+/g, ' ');   // Normalize spaces
-    };
-    
-    // Helper function to check if two skills match
-    const skillsMatch = (resumeSkill, roleSkill) => {
-      const normalizedResumeSkill = normalizeSkill(resumeSkill);
-      const normalizedRoleSkill = normalizeSkill(roleSkill);
+  const performSkillGapAnalysis = useCallback(async () => {
+    try {
+      setSkillGapsLoading(true);
       
-      // Check for exact match
-      if (normalizedResumeSkill === normalizedRoleSkill) {
-        return true;
+      // First analyze the resume to get skills
+      const analysisResult = await analyzeResume();
+      if (!analysisResult) {
+        throw new Error("Resume analysis failed");
       }
       
-      // Check if one contains the other 
-      if (normalizedResumeSkill.includes(normalizedRoleSkill) || 
-          normalizedRoleSkill.includes(normalizedResumeSkill)) {
-        return true;
+      if (!analysisResult.skills || analysisResult.skills.length === 0) {
+        throw new Error("No skills could be extracted from your resume.");
       }
-      
-      // Handle common aliases (could be expanded)
-      const aliases = {
-        'javascript': ['js'],
-        'typescript': ['ts'],
-        'python': ['py'],
-        'react': ['reactjs', 'react.js'],
-        'node.js': ['nodejs', 'node'],
-        'postgresql': ['postgres'],
-        'firebase': ['firestore'],
-        'mongodb': ['mongo'],
-        
+
+      // Get the selected role data
+      const roleData = jobRoles[selectedRole.toLowerCase()];
+      if (!roleData) {
+        throw new Error(`Job role '${selectedRole}' is not in our database.`);
+      }
+
+      // Helper function to normalize skills for better matching
+      const normalizeSkill = (skill) => {
+        return skill.toLowerCase()
+          .trim()
+          .replace(/[-_./]/g, ' ') // Replace common separators with spaces
+          .replace(/\s+/g, ' ');   // Normalize spaces
       };
       
-      // Check aliases
-      for (const [skill, aliasList] of Object.entries(aliases)) {
-        if ((normalizedRoleSkill === skill && aliasList.includes(normalizedResumeSkill)) ||
-            (normalizedResumeSkill === skill && aliasList.includes(normalizedRoleSkill))) {
+      // Helper function to check if two skills match
+      const skillsMatch = (resumeSkill, roleSkill) => {
+        const normalizedResumeSkill = normalizeSkill(resumeSkill);
+        const normalizedRoleSkill = normalizeSkill(roleSkill);
+        
+        // Check for exact match
+        if (normalizedResumeSkill === normalizedRoleSkill) {
           return true;
         }
-      }
-      
-      return false;
-    };
+        
+        // Check if one contains the other 
+        if (normalizedResumeSkill.includes(normalizedRoleSkill) || 
+            normalizedRoleSkill.includes(normalizedResumeSkill)) {
+          return true;
+        }
+        
+        // Handle common aliases
+        const aliases = {
+          'javascript': ['js'],
+          'typescript': ['ts'],
+          'python': ['py'],
+          'react': ['reactjs', 'react.js'],
+          'node.js': ['nodejs', 'node'],
+          'postgresql': ['postgres'],
+          'firebase': ['firestore'],
+          'mongodb': ['mongo'],
+        };
+        
+        // Check aliases
+        for (const [skill, aliasList] of Object.entries(aliases)) {
+          if ((normalizedRoleSkill === skill && aliasList.includes(normalizedResumeSkill)) ||
+              (normalizedResumeSkill === skill && aliasList.includes(normalizedRoleSkill))) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
 
-    // Find matched and missing skills with improved matching logic
-    const matchedSkills = [];
-    const missingSkills = [];
-    
-    // Normalize resume skills once
-    const normalizedResumeSkills = analysisResult.skills.map(skill => skill.trim());
-    
-    // For each skill in the role requirements, check if it exists in resume skills
-    roleData.skills.forEach(roleSkill => {
-      // Check if any resume skill matches this role skill
-      const isSkillMatched = normalizedResumeSkills.some(resumeSkill => 
-        skillsMatch(resumeSkill, roleSkill)
+      // Find matched and missing skills with improved matching logic
+      const matchedSkills = [];
+      const missingSkills = [];
+      
+      // Normalize resume skills once
+      const normalizedResumeSkills = analysisResult.skills.map(skill => skill.trim());
+      
+      // For each skill in the role requirements, check if it exists in resume skills
+      roleData.skills.forEach(roleSkill => {
+        const isSkillMatched = normalizedResumeSkills.some(resumeSkill => 
+          skillsMatch(resumeSkill, roleSkill)
+        );
+        
+        if (isSkillMatched) {
+          matchedSkills.push(roleSkill);
+        } else {
+          missingSkills.push(roleSkill);
+        }
+      });
+
+      // Fetch resources for missing skills and the selected role
+      const skillResources = {};
+      await Promise.all(
+        missingSkills.map(async (skill) => {
+          skillResources[skill] = await getSkillResources(skill);
+        })
       );
-      
-      if (isSkillMatched) {
-        matchedSkills.push(roleSkill);
-      } else {
-        missingSkills.push(roleSkill);
-      }
-    });
 
-    // Log for debugging
-    console.log("Resume skills:", normalizedResumeSkills);
-    console.log("Matched skills:", matchedSkills);
-    console.log("Missing skills:", missingSkills);
+      // Fetch resources for the selected role
+      const roleResources = await getSkillResources(selectedRole, true);
 
-    // Prepare the result
-    const result = {
-      selectedRole,
-      matchedSkills,
-      missingSkills,
-      recommendations: roleData.resources,
-      skillResources: missingSkills.reduce((acc, skill) => {
-        acc[skill] = getSkillResources(skill);
-        return acc;
-      }, {})
-    };
+      // Prepare the final result
+      const result = {
+        selectedRole,
+        matchedSkills,
+        missingSkills,
+        recommendations: roleResources.reduce((acc, resource) => ({
+          ...acc,
+          [resource.platform]: resource.url
+        }), {}),
+        skillResources
+      };
 
-    setSkillGaps(result);
-    return result;
+      setSkillGaps(result);
+      return result;
 
-  } catch (error) {
-    console.error("Skill gap analysis error:", error);
-    toast.error(error.message);
-    setSkillGaps({});
-    return null;
-  } finally {
-    setSkillGapsLoading(false);
-  }
-}, [analyzeResume, selectedRole]);
+    } catch (error) {
+      console.error("Skill gap analysis error:", error);
+      toast.error(error.message);
+      setSkillGaps({});
+      return null;
+    } finally {
+      setSkillGapsLoading(false);
+    }
+  }, [analyzeResume, selectedRole, getSkillResources]);
 
   // Fetch bookmarks from Flask backend
   const fetchBookmarks = useCallback(async () => {
@@ -591,28 +552,36 @@ const performSkillGapAnalysis = useCallback(async () => {
 
   // Fetch resources from Flask backend
   const fetchResources = useCallback(async (forceRefresh = false) => {
-    try {
-      setResourcesLoading(true);
-      
-      if (forceRefresh) {
-        await fetch("http://127.0.0.1:5003/resources_for_all_bookmarks");
-        toast.success("Resources updated successfully!");
-      }
-
-      const response = await fetch("http://127.0.0.1:5003/resources_from_db");
+  try {
+    setResourcesLoading(true);
+    
+    if (forceRefresh) {
+      const response = await fetch("http://127.0.0.1:5003/resources_for_all_bookmarks");
       if (!response.ok) {
-        throw new Error(`Failed to fetch resources: ${response.status}`);
+        throw new Error(`Failed to refresh resources: ${response.statusText}`);
       }
-      const data = await response.json();
-      setResourcesData(data || []);
-    } catch (error) {
-      console.error("Error fetching resources:", error);
-      toast.error(`Failed to load resources: ${error.message}`);
-      setResourcesData([]);
-    } finally {
-      setResourcesLoading(false);
+      toast.success("Resources updated successfully!");
     }
-  }, []);
+
+    const response = await fetch("http://127.0.0.1:5003/resources_from_db");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch resources: ${response.statusText}`);
+    }
+    const data = await response.json();
+    setResourcesData(data || []);
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || error.message;
+    console.error("Error fetching resources:", {
+      message: errorMessage,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    toast.error(`Failed to fetch resources: ${errorMessage}`);
+    setResourcesData([]);
+  } finally {
+    setResourcesLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     isMounted.current = true;
@@ -827,93 +796,15 @@ const performSkillGapAnalysis = useCallback(async () => {
         >
           Resources
         </button>
-
         <button
-        className={`py-2 px-4 font-medium ${activeTab === 'stats' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-        onClick={() => setActiveTab('stats')}
+          className={`py-2 px-4 font-medium ${activeTab === 'stats' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+          onClick={() => setActiveTab('stats')}
         >
-        Dashboard
-      </button>
-
+          Dashboard
+        </button>
       </div>
-
-      {/* Add Job Application Form */}
-      {activeTab === 'jobs' && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Add New Job Application</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input 
-                type="text" 
-                name="company" 
-                placeholder="Company *" 
-                className="w-full p-2 border rounded" 
-                value={newJob.company} 
-                onChange={handleChange} 
-                required 
-              />
-              <input 
-                type="text" 
-                name="role" 
-                placeholder="Role *" 
-                className="w-full p-2 border rounded" 
-                value={newJob.role} 
-                onChange={handleChange} 
-                required 
-              />
-              <input 
-                type="number" 
-                name="salary" 
-                placeholder="Salary" 
-                className="w-full p-2 border rounded" 
-                value={newJob.salary} 
-                onChange={handleChange} 
-                min="0"
-              />
-              <DatePicker
-                selected={newJob.applicationDate}
-                onChange={handleDateChange}
-                className="w-full p-2 border rounded"
-                placeholderText="Select Application Date *"
-                dateFormat="MMMM d, yyyy"
-                required
-              />
-              <input 
-                type="url" 
-                name="url" 
-                placeholder="Job URL (optional)" 
-                className="w-full p-2 border rounded" 
-                value={newJob.url} 
-                onChange={handleChange} 
-              />
-            </div>
-            <input 
-              type="text" 
-              name="skills" 
-              placeholder="Skills (comma separated)" 
-              className="w-full p-2 border rounded" 
-              value={newJob.skills} 
-              onChange={handleChange} 
-            />
-            <textarea 
-              name="description" 
-              placeholder="Job Description" 
-              className="w-full p-2 border rounded" 
-              value={newJob.description} 
-              onChange={handleChange} 
-              rows="4" 
-            />
-            <button 
-              type="submit" 
-              className="w-full bg-violet-600 text-white py-2 px-4 rounded hover:bg-violet-700 transition-colors"
-            >
-              Add Job Application
-            </button>
-          </form>
-        </div>
-      )}
       
-      {/* Tab Content */}
+  {/* Tab Content */}
       {activeTab === 'jobs' && (
         <>
           <h2 className="text-xl font-semibold mb-4">Your Job Applications</h2>
@@ -1070,8 +961,6 @@ const performSkillGapAnalysis = useCallback(async () => {
         </>
       )}
         
-
-
       {activeTab === 'skillGaps' && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">Skill Gap Analysis</h2>
@@ -1178,7 +1067,7 @@ const performSkillGapAnalysis = useCallback(async () => {
 
               {skillGaps.recommendations && Object.keys(skillGaps.recommendations).length > 0 && (
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">📚 Recommended Learning Resources</h4>
+                  <h4 className="font-medium text-blue-800 mb-2">📚 Recommended Learning Resources for {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}</h4>
                   <ul className="list-disc pl-5 space-y-1">
                     {Object.entries(skillGaps.recommendations).map(([platform, url]) => (
                       <li key={platform}>
@@ -1204,7 +1093,7 @@ const performSkillGapAnalysis = useCallback(async () => {
                       <div key={index} className="bg-white p-3 rounded shadow-sm">
                         <h5 className="font-medium">{skill}</h5>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {getSkillResources(skill).map((resource, i) => (
+                          {(skillGaps.skillResources?.[skill] || []).map((resource, i) => (
                             <a
                               key={i}
                               href={resource.url}
@@ -1232,10 +1121,21 @@ const performSkillGapAnalysis = useCallback(async () => {
       <h2 className="text-xl font-semibold">Learning Resources</h2>
       <div className="flex gap-2">
         <button 
-          onClick={() => fetchResources(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+          onClick={async () => {
+            if (skillGaps.missingSkills) {
+              await Promise.all(
+                skillGaps.missingSkills.map(skill => getSkillResources(skill))
+              );
+              await getSkillResources(selectedRole, true);
+              toast.success("Resources refreshed!");
+            } else {
+              toast.info("Please analyze your resume first to refresh resources.");
+            }
+          }}
+          disabled={isLoadingResources}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
         >
-          Refresh Recommendations
+          {isLoadingResources ? 'Refreshing...' : 'Refresh Recommendations'}
         </button>
         <button
           onClick={performSkillGapAnalysis}
@@ -1251,191 +1151,145 @@ const performSkillGapAnalysis = useCallback(async () => {
       </div>
     </div>
     
-    {resourcesLoading ? (
+    {isLoadingResources || resourcesLoading ? (
       <div className="flex justify-center">
         <Spinner size="large" />
       </div>
     ) : (
       <>
-        {/* Skill-based resources (only show if skill gaps analysis is done) */}
-        {skillGaps.missingSkills && skillGaps.missingSkills.length > 0 && (
-          <div className="bg-blue-50 p-6 rounded-lg shadow-md mb-6">
-            <h3 className="text-lg font-bold mb-4">Recommended Resources Based on Your Skill Gaps</h3>
+        {resourcesData.length > 0 && (
+          <div className="bg-gray-50 p-6 rounded-lg shadow-md mb-6">
+            <h3 className="text-lg font-bold mb-4">Bookmark-Related Resources</h3>
             <div className="space-y-4">
-              {skillGaps.missingSkills.map((skill, index) => (
+              {resourcesData.map((item, index) => (
                 <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
-                  <h4 className="font-medium text-blue-700">{skill.charAt(0).toUpperCase() + skill.slice(1)}</h4>
+                  <h4 className="font-medium text-gray-700">{item.title || 'Untitled Bookmark'}</h4>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {getSkillResources(skill).map((resource, i) => (
-                      <a
+                    {(item.resources.General || []).map((resource, i) => (
+                      <ResourceCard
                         key={i}
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center p-2 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        {resource.platform}
-                      </a>
+                        title={resource.title || resource.platform || 'General Resource'}
+                        description={resource.snippet || `Learn ${item.title} from online resources`}
+                        url={resource.link || `https://www.google.com/search?q=learn+${encodeURIComponent(item.title)}`}
+                        icon="📚"
+                        skillBased={false}
+                      />
+                    ))}
+                    {(item.resources.leetcode || []).map((resource, i) => (
+                      <ResourceCard
+                        key={`leetcode-${i}`}
+                        title={resource.title || "LeetCode Resource"}
+                        description={`Practice coding for ${item.title}`}
+                        url={resource.link || `https://leetcode.com/problemset/all/?search=${encodeURIComponent(item.title)}`}
+                        icon="💻"
+                        skillBased={false}
+                      />
+                    ))}
+                    {(item.resources.forage || []).map((resource, i) => (
+                      <ResourceCard
+                        key={`forage-${i}`}
+                        title={resource.title || "Forage Resource"}
+                        description={`Virtual experience for ${item.title}`}
+                        url={resource.link || `https://www.theforage.com/search?query=${encodeURIComponent(item.title)} `}
+                        icon="🌱"
+                        skillBased={false}
+                      />
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-            
-            {/* Forage section for skill gaps */}
-            <div className="mt-6">
-              <h4 className="font-medium text-blue-800 mb-3">Forage Virtual Internships</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {skillGaps.missingSkills.slice(0, 4).map((skill, index) => {
-                  const forageLink = skill === "python" || skill === "data structures" || skill === "sql" 
-                    ? "https://www.theforage.com/virtual-internships/prototype/ytc/JP-Morgan-Data-Analytics-Virtual-Experience"
-                    : skill === "javascript" || skill === "react"
-                    ? "https://www.theforage.com/virtual-internships/prototype/yzg/Accenture-Developer-Virtual-Experience"
-                    : `https://www.theforage.com/browse-programs?keywords=${skill.replace(' ', '%20')}`;
-                  
-                  const forageTitle = skill === "python" || skill === "data structures" || skill === "sql"
-                    ? "JP Morgan Data Analytics"
-                    : skill === "javascript" || skill === "react"
-                    ? "Accenture Developer Experience"
-                    : `${skill.charAt(0).toUpperCase() + skill.slice(1)} Programs`;
-                  
-                  return (
-                    <ResourceCard
-                      key={index}
-                      title={forageTitle}
-                      description={`Learn ${skill} through virtual experience`}
-                      url={forageLink}
-                      icon="🚀"
-                      skillBased={true}
-                    />
-                  );
-                })}
-              </div>
+          </div>
+        )}
+        {skillGaps.missingSkills?.length > 0 && (
+          <div className="bg-blue-50 p-6 rounded-lg shadow-md mb-6">
+            <h3 className="text-lg font-bold mb-4">Recommended Resources Based on Your Skill Gaps</h3>
+            <div className="space-y-4">
+              {skillGaps.missingSkills.map((skill, index) => (
+                <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-medium text-blue-700">
+                    {skill.charAt(0).toUpperCase() + skill.slice(1)}
+                  </h4>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(skillGaps.skillResources?.[skill] || []).map((resource, i) => (
+                      <ResourceCard
+                        key={i}
+                        title={resource.title || resource.platform || 'Resource'}
+                        description={resource.description || `Learn ${skill} from online resources`}
+                        url={resource.url || `https://www.google.com/search?q=learn+${encodeURIComponent(skill)}`}
+                        icon="🔍"
+                        skillBased={true}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
-
-        {/* LeetCode Practice section tied to skill gaps */}
-        <div className="mt-6 bg-gray-50 p-6 rounded-lg">
-          <h3 className="text-xl font-semibold mb-4">LeetCode Practice by Skill</h3>
-          {skillGaps.missingSkills && skillGaps.missingSkills.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {skillGaps.missingSkills.map((skill, index) => {
-                let leetCodeLink = "https://leetcode.com/problemset/all/";
-                let description = "Practice coding problems";
-                
-                if (skill === "python") {
-                  leetCodeLink = "https://leetcode.com/problemset/python/";
-                  description = "Python specific problems and solutions";
-                } else if (skill === "javascript") {
-                  leetCodeLink = "https://leetcode.com/problemset/javascript/";
-                  description = "JavaScript focused challenges";
-                } else if (skill === "data structures" || skill === "algorithms") {
-                  leetCodeLink = "https://leetcode.com/explore/learn/";
-                  description = "Data structures and algorithms problems";
-                } else if (skill === "sql") {
-                  leetCodeLink = "https://leetcode.com/problemset/database/";
-                  description = "SQL database query challenges";
-                }
-                
-                return (
-                  <ResourceCard
-                    key={index}
-                    title={`${skill.charAt(0).toUpperCase() + skill.slice(1)} Practice`}
-                    description={description}
-                    url={leetCodeLink}
-                    icon="💻"
-                    skillBased={true}
-                  />
-                );
-              })}
+        {skillGaps.recommendations && Object.keys(skillGaps.recommendations).length > 0 && (
+          <div className="bg-blue-50 p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-bold mb-4">Resources for {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {Object.entries(skillGaps.recommendations).map(([platform, url]) => (
+                <ResourceCard
+                  key={platform}
+                  title={platform}
+                  description={`Learn more about ${selectedRole} from ${platform}`}
+                  url={url || `https://www.google.com/search?q=learn+${encodeURIComponent(selectedRole)}`}
+                  icon="📚"
+                  skillBased={false}
+                />
+              ))}
             </div>
-          ) : (
-            <p className="text-gray-500 italic">Upload your resume and analyze your skills to get personalized LeetCode recommendations.</p>
-          )}
-        </div>
-
-        {/* Interview Preparation Resources */}
-        <div className="mt-6 bg-green-50 p-6 rounded-lg">
-          <h3 className="text-xl font-semibold mb-4">Interview Preparation Resources</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <ResourceCard 
-              title="Interviewing.io"
-              description="Practice technical interviews"
-              url="https://interviewing.io/"
-              icon="🎤"
-            />
-            <ResourceCard 
-              title="Pramp"
-              description="Free peer-to-peer mock interviews"
-              url="https://www.pramp.com/"
-              icon="🤝"
-            />
-            <ResourceCard 
-              title="Glassdoor Interviews"
-              description="Company-specific interview questions"
-              url="https://www.glassdoor.com/Interview/index.htm"
-              icon="🏢"
-            />
-            
           </div>
-          
-          
-        </div>
+        )}
+        {resourcesData.length === 0 && (!skillGaps.missingSkills || skillGaps.missingSkills.length === 0) && (
+          <p className="text-center text-gray-500">
+            No resources available. Please analyze your resume or add bookmarks to see recommendations.
+          </p>
+        )}
       </>
     )}
-    
   </>
-  
-  
 )}
+      {jobsFromGmail.length > 0 && (
+        <>
+          <h2 className="text-xl font-semibold mt-10 mb-4">📬 Applications Extracted from Gmail</h2>
+          <div className="grid gap-4">
+            {jobsFromGmail.map((job, index) => (
+              <div key={index} className="bg-gray-50 p-4 rounded-lg shadow-md">
+                <h3 className="font-bold text-blue-800">{job.company} - {job.role}</h3>
+                <p>Status: <span className="font-semibold">{job.status}</span></p>
+                <p>Date Received: {new Date(job.date_received).toLocaleDateString()}</p>
+                <p>Subject: {job.subject}</p>
+                <p>From: {job.sender}</p>
+                {job.gmail_link && (
+                  <a 
+                    href={job.gmail_link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline mt-2 inline-block"
+                  >
+                    View Email on Gmail
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
-{jobsFromGmail.length > 0 && (
-  <>
-    <h2 className="text-xl font-semibold mt-10 mb-4">📬 Applications Extracted from Gmail</h2>
-    <div className="grid gap-4">
-      {jobsFromGmail.map((job, index) => (
-        <div key={index} className="bg-gray-50 p-4 rounded-lg shadow-md">
-          <h3 className="font-bold text-blue-800">{job.company} - {job.role}</h3>
-          <p>Status: <span className="font-semibold">{job.status}</span></p>
-          <p>Date Received: {new Date(job.date_received).toLocaleDateString()}</p>
-          <p>Subject: {job.subject}</p>
-          <p>From: {job.sender}</p>
-          {job.gmail_link && (
-            <a 
-              href={job.gmail_link} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline mt-2 inline-block"
-            >
-              View Email on Gmail
-            </a>
-          )}
-        </div>
-      ))}
-    </div>
-    
-  </>
-  
-)}
-
-{activeTab === 'stats' && (
-  <JobStatsChart jobs={combinedJobs} />
-)}
+      {activeTab === 'stats' && (
+        <JobStatsChart jobs={combinedJobs} />
+      )}
 
       {/* Chatbot */}
       <div className="fixed bottom-4 right-4 w-64 z-50">
         <Chatbot />
       </div>
     </div>
-    
-  );
-
-  
+);
 };
-
 
 export default Dashboard;

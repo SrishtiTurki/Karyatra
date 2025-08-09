@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MessageCircleIcon, MicIcon, StopCircleIcon, SendIcon, VolumeXIcon } from 'lucide-react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
@@ -12,7 +12,7 @@ const Chatbot = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const API_KEY = "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"; 
+  const API_KEY = "YOUR_API_KEY";
 
   // Speech Recognition Hook
   const {
@@ -39,68 +39,49 @@ const Chatbot = () => {
     return phrases[lowercaseText] || null;
   };
 
-  // Function to check if the query is job-related
+  // Improved job-related query check with regex
   const isJobRelatedQuery = (text) => {
-    const jobRelatedKeywords = [
-      'job', 'career', 'work', 'profession', 'role', 
-      'skill', 'employment', 'interview', 'resume', 
-      'salary', 'company', 'industry', 'certification',
-      'professional', 'workplace', 'hiring', 'employee',
-      'recruitment', 'occupation', 'position', 'internship'
-    ];
-
-    const lowercaseText = text.toLowerCase();
-    return jobRelatedKeywords.some(keyword => 
-      lowercaseText.includes(keyword)
-    );
+    const jobRelatedPattern = /\b(job|career|work|profession|role|skill|employment|interview|resume|salary|company|industry|certification|professional|workplace|hiring|employee|recruitment|occupation|position|internship)\b/i;
+    return jobRelatedPattern.test(text);
   };
 
   // Function to convert markdown to plain text for speech
   const markdownToPlainText = (markdown) => {
-    // Remove headers (lines starting with #)
-    let plainText = markdown.replace(/^#+\s+/gm, '');
-    
-    // Remove bullet points
-    plainText = plainText.replace(/^\s*[\*\-]\s+/gm, '');
-    
-    // Remove numbered lists
-    plainText = plainText.replace(/^\s*\d+\.\s+/gm, '');
-    
-    // Remove bold and italic formatting
-    plainText = plainText.replace(/\*\*(.*?)\*\*/g, '$1');
-    plainText = plainText.replace(/\*(.*?)\*/g, '$1');
+    let plainText = markdown
+      .replace(/^#+\s+/gm, '')      // Remove headers
+      .replace(/^\s*[\*\-]\s+/gm, '') // Remove bullet points
+      .replace(/^\s*\d+\.\s+/gm, '') // Remove numbered lists
+      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+      .replace(/\*(.*?)\*/g, '$1');   // Remove italics
     
     return plainText;
   };
 
-  // Text-to-Speech Function
+  // Text-to-Speech Function with browser support check
   const speak = (text) => {
-    // Stop any ongoing speech
+    if (!window.speechSynthesis) {
+      console.warn("Speech synthesis not supported");
+      return;
+    }
+
     window.speechSynthesis.cancel();
-    
-    // Convert markdown to plain text for speech
     const plainText = markdownToPlainText(text);
-    
     const utterance = new SpeechSynthesisUtterance(plainText);
-    utterance.rate = 0.9; // Adjust speaking rate
+    utterance.rate = 0.9;
     
-    // Track speaking state
     setIsSpeaking(true);
     
-    utterance.onend = () => {
-      setIsSpeaking(false);
-    };
-    
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-    };
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
     
     window.speechSynthesis.speak(utterance);
   };
 
   // Stop Speaking Function
   const stopSpeaking = () => {
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setIsSpeaking(false);
   };
 
@@ -114,7 +95,7 @@ const Chatbot = () => {
       setIsListening(true);
     } catch (error) {
       console.error("Error starting speech recognition:", error);
-      alert("Speech recognition is not supported in this browser or permission was denied.");
+      setError("Speech recognition is not supported in this browser or permission was denied.");
     }
   };
 
@@ -131,11 +112,17 @@ const Chatbot = () => {
     }
   }, [transcript]);
 
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   const handleQuerySubmit = async (e) => {
-    // Allow submission from both form and voice
-    if (e && e.preventDefault) {
-      e.preventDefault();
-    }
+    if (e && e.preventDefault) e.preventDefault();
 
     const currentQuery = query || transcript;
     if (!currentQuery.trim()) return;
@@ -176,28 +163,28 @@ const Chatbot = () => {
     setError(null);
 
     try {
-      const apiResponse = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
-        model: "qwen/qwen2.5-vl-3b-instruct:free",
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional career assistant. Provide precise, informative responses about jobs, careers, professional skills, and workplace information. Focus on giving clear, actionable career advice.'
-          },
-          {
-            role: 'user',
-            content: currentQuery
+      const apiResponse = await axios.post(
+        'https://api.cohere.ai/v1/chat',
+        {
+          message: currentQuery,
+          model: "command-r-plus",
+          chat_history: chatHistory.map(msg => ({
+            role: msg.type === 'user' ? 'USER' : 'CHATBOT',
+            message: msg.text
+          })),
+          temperature: 0.3
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json',
+            'Cohere-Version': '2022-12-06'
           }
-        ]
-      }, {
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json'
         }
-      });
+      );
 
-      const botResponse = apiResponse.data.choices[0].message.content;
+      const botResponse = apiResponse.data.text;
       
-      // Update chat history
       const newChatHistory = [
         ...chatHistory, 
         { type: 'user', text: currentQuery },
@@ -206,10 +193,10 @@ const Chatbot = () => {
       
       setChatHistory(newChatHistory);
       speak(botResponse);
-      setQuery(''); // Clear input after submission
+      setQuery('');
       resetTranscript();
     } catch (err) {
-      const errorMessage = 'Failed to fetch response. Please try again.';
+      const errorMessage = err.response?.data?.message || 'Failed to fetch response. Please try again.';
       setError(errorMessage);
       speak(errorMessage);
       console.error('API Error:', err);
@@ -217,11 +204,6 @@ const Chatbot = () => {
       setIsLoading(false);
     }
   };
-
-  // Check Browser Support
-  if (!browserSupportsSpeechRecognition) {
-    return <div>Browser does not support speech recognition</div>;
-  }
 
   // Custom component to render messages with proper formatting
   const MessageDisplay = ({ message }) => {
@@ -236,21 +218,34 @@ const Chatbot = () => {
     }
   };
 
+  // Check Browser Support
+  if (!browserSupportsSpeechRecognition) {
+    return <div className="p-4 text-red-500">Browser does not support speech recognition</div>;
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-4 bg-white shadow-md rounded-lg relative">
       <h2 className="text-2xl font-bold mb-4 text-center">Career Voice Assistant</h2>
       
       {/* Scrollable Chat History */}
       <div className="h-64 overflow-y-auto border border-gray-200 mb-4 p-2 rounded">
-        {chatHistory.map((message, index) => (
-          <MessageDisplay key={index} message={message} />
-        ))}
+        {chatHistory.length > 0 ? (
+          chatHistory.map((message, index) => (
+            <MessageDisplay key={index} message={message} />
+          ))
+        ) : (
+          <div className="text-gray-500 text-center py-8">
+            Ask me about job skills, career paths, or interview tips
+          </div>
+        )}
       </div>
       
-      {/* Transcript Display */}
-      <div className="mb-4 p-2 bg-gray-50 rounded">
-        <p className="text-gray-600">{transcript}</p>
-      </div>
+      {/* Transcript Display when listening */}
+      {isListening && (
+        <div className="mb-4 p-2 bg-gray-50 rounded">
+          <p className="text-gray-600">{transcript || "Listening..."}</p>
+        </div>
+      )}
       
       <form onSubmit={handleQuerySubmit} className="mb-4">
         <div className="flex">
@@ -277,7 +272,7 @@ const Chatbot = () => {
         <button 
           onClick={startListening}
           disabled={isListening}
-          className="bg-green-500 text-white p-2 rounded-full disabled:opacity-50"
+          className={`p-2 rounded-full ${isListening ? 'bg-gray-300' : 'bg-green-500 hover:bg-green-600 text-white'}`}
         >
           <MicIcon size={24} />
         </button>
@@ -285,7 +280,7 @@ const Chatbot = () => {
         <button 
           onClick={stopListening}
           disabled={!isListening}
-          className="bg-red-500 text-white p-2 rounded-full disabled:opacity-50"
+          className={`p-2 rounded-full ${!isListening ? 'bg-gray-300' : 'bg-red-500 hover:bg-red-600 text-white'}`}
         >
           <StopCircleIcon size={24} />
         </button>
@@ -293,7 +288,7 @@ const Chatbot = () => {
         <button 
           onClick={() => handleQuerySubmit()}
           disabled={!transcript.trim() || isLoading}
-          className="bg-blue-500 text-white p-2 rounded-full disabled:opacity-50"
+          className={`p-2 rounded-full ${(!transcript.trim() || isLoading) ? 'bg-gray-300' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
         >
           <SendIcon size={24} />
         </button>
@@ -302,7 +297,7 @@ const Chatbot = () => {
         {isSpeaking && (
           <button 
             onClick={stopSpeaking}
-            className="bg-yellow-500 text-white p-2 rounded-full"
+            className="bg-yellow-500 text-white p-2 rounded-full hover:bg-yellow-600"
           >
             <VolumeXIcon size={24} />
           </button>
@@ -316,8 +311,8 @@ const Chatbot = () => {
       )}
 
       {isLoading && (
-        <div className="flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
+        <div className="flex justify-center items-center py-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
     </div>
@@ -337,28 +332,32 @@ const ChatbotWrapper = () => {
       {!isChatbotOpen && (
         <button 
           onClick={toggleChatbot}
-          className="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300"
+          className="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition-all duration-300 flex items-center justify-center"
+          style={{ width: '56px', height: '56px' }}
         >
-          <MessageCircleIcon size={24} />
+          <MessageCircleIcon size={28} />
         </button>
       )}
 
       {/* Chatbot Modal */}
       {isChatbotOpen && (
         <div className="fixed bottom-4 right-4 z-50 w-96 max-w-full">
-          <div className="bg-white shadow-xl rounded-lg">
-            {/* Close Button */}
-            <div className="flex justify-end p-2">
+          <div className="bg-white shadow-xl rounded-lg overflow-hidden">
+            {/* Header with close button */}
+            <div className="bg-blue-500 text-white p-3 flex justify-between items-center">
+              <h3 className="font-semibold">Career Assistant</h3>
               <button 
                 onClick={toggleChatbot}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white hover:text-gray-200 focus:outline-none"
               >
                 ✕
               </button>
             </div>
 
             {/* Chatbot Component */}
-            <Chatbot />
+            <div className="max-h-[80vh] overflow-hidden">
+              <Chatbot />
+            </div>
           </div>
         </div>
       )}
